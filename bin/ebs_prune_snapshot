@@ -1,0 +1,109 @@
+#!/usr/bin/env ruby
+require 'ebs_prune_snapshot'
+require 'optparse'
+
+def send_error(message)
+  puts @opts
+  puts ""
+  puts "ERROR: #{message}"
+  puts ""
+  exit(1)
+end
+
+@options = {}
+@opts = OptionParser.new
+
+@opts.banner = <<-EOD
+EbsPruneSnapshot
+
+Manage your EBS snapshots on a daily, weekly, and monthly rotation schedule.
+
+AWS Access Key and AWS Secret Access Key are required.  These options can be
+provided through the command line or they may be stored in the environmental
+variables of AMAZON_ACCESS_KEY_ID and AMAZON_SECRET_ACCESS_KEY.  Any options
+provided through the command line will override the environmental variables.
+
+A daily, weekly, and monthly rotation are also required.  The monthly rotation
+is every 4 weeks, so provide 13 to go back a full year.
+
+If you only want to see what would happen if you ran the schedule, then pass
+the --dry-run (-n) argument.
+
+Usage: ebs_prune_snapshot [options]
+   eg: ebs_snapshot -d 7 -w 12 -m 13"
+EOD
+
+ @opts.separator ""
+ @opts.separator "Required rotation configuration"
+
+ @opts.on(
+   "-d", "--daily DAILY", "Number of daily snapshots to keep"
+ ) { |value| @options[:daily]= value }
+
+ @opts.on(
+   "-w", "--weekly WEEKLY", "Number of weekly snapshots to keep"
+ ) { |value| @options[:weekly] = value }
+
+ @opts.on(
+   '-m', "--monthly MONTHLY", "Number of monthly snapshots to keep"
+ ) { |value| @options[:monthly] = value }
+
+@opts.separator ""
+@opts.separator "AWS Identifications, required unless environmental variables set"
+
+@opts.on(
+  "-k", "--key KEY", "AWS Access Key (AMAZON_ACCESS_KEY_ID)"
+) { |value| @options[:access_key] = value }
+
+@opts.on(
+  "-s", "--secret SECRET", "AWS Secret Access Key (AMAZON_SECRET_ACCESS_KEY)"
+) { |value| @options[:secret_key] = value }
+
+@opts.separator ""
+@opts.separator "Informational arguments"
+
+@opts.on(
+  "-n", "--dry-run", "Describe what would be done (DOES NOT delete snapshots)"
+) { |value| @options[:verbose] = true }
+
+@opts.on_tail("-h", "--help", "Show Command Help") do
+  puts @opts
+  puts ""
+  exit(1)
+end
+
+begin
+  @opts.parse!
+rescue StandardError => e
+  send_error e.message
+end
+
+@options[:access_key] ||= ENV['AMAZON_ACCESS_KEY_ID']
+@options[:secret_key] ||= ENV['AMAZON_SECRET_ACCESS_KEY']
+
+unless @options[:access_key] && @options[:secret_key]
+  send_error "Missing Arguments: --key and --secret are required
+ NOTE: AMAZON_ACCESS_KEY_ID and AMAZON_SECRET_ACCESS_KEY env variables are accepted"
+end
+
+unless @options[:daily] && @options[:weekly] && @options[:monthly]
+  send_error "Missing Arguments: --daily, --weekly and --monthly are required"
+end
+
+ebs = EbsPruneSnapshot::Base.new(
+  :aws => {
+    :access_key => @options[:access_key],
+    :secret_key => @options[:secret_key]
+  },
+  :rotation => {
+    :daily => @options[:daily].to_i,
+    :weekly => @options[:weekly].to_i,
+    :monthly => @options[:monthly].to_i
+  }
+)
+
+if @options[:verbose]
+  ebs.describe
+else
+  ebs.prune
+end
