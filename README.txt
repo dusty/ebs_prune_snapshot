@@ -8,6 +8,9 @@ Features
  - Saves the oldest snapshot of any week as a weekly snapshot (Sundays).
  - Saves the oldest snapshot of any 4 week period as a monthly snapshot (Sunday).
 
+Take a look at ebs_snapshot to take the snapshots if you need LVM/XFS
+filesystem freezing and/or MySQL locks. (https://github.com/dusty/ebs_snapshot)
+
 ## Installation
 
 Add this line to your application's Gemfile:
